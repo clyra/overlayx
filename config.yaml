@@ -1,0 +1,142 @@
+# VirtualCamPro Configuration File
+# ================================
+# Este arquivo de configuração define o comportamento da câmera virtual
+# 
+# NOTA: Plugins podem ser carregados múltiplas vezes com configurações diferentes
+# usando a lista "instances" em vez de "enabled"
+
+# Configurações da Câmera
+camera:
+  # Resolução de saída (largura x altura)
+  width: 1280
+  height: 720
+  # FPS (frames por segundo)
+  fps: 30
+  # Dispositivo de captura (0 = webcam padrão)
+  device: 0
+  # Modo de redimensionamento da imagem:
+  # - fit: true  -> Dimensiona a imagem para preencher completamente a saída (mantém aspect ratio, pode letterbox/pillarbox)
+  # - fit: false -> Faz crop do centro da imagem para caber na saída (padrão)
+  #               -> Se a imagem da webcam for menor que a saída, mantém o tamanho original
+  fit: true
+
+# Ativos Disponíveis (para usar nos plugins)
+assets:
+  fonts:
+    - name: "sfns"
+      path: "/System/Library/Fonts/SFNS.ttf"
+    - name: "menlo"
+      path: "/System/Library/Fonts/Menlo.ttc"
+
+# Configurações de Plugins
+# ========================
+# Formato unificado: lista de plugins com name, type e opções específicas
+#
+# name:  ID único do plugin (usado como identificador)
+# type:  Tipo do plugin (clock, cpu, overlay, crop)
+# enabled: Ativado por padrão (opcional)
+#
+# Exemplo:
+#   plugins:
+#     - name: "clock_main"      # ID único
+#       type: "clock"          # Tipo do plugin
+#       position: [1080, 20]   # Opções específicas...
+#       format: "%H:%M:%S"
+#     - name: "clock_date"
+#       type: "clock"
+#       position: [40, 680]
+#       format: "%d/%m/%Y"
+#     - name: "cpu_monitor"
+#       type: "cpu"
+#       position: [40, 35]
+
+plugins:
+  - name: "clock_main"
+    type: "clock"
+    position: [1050, 80]
+    font_size: 35
+    font: "sfns"            # Nome da fonte em assets.fonts (opcional)
+    format: "%H:%M:%S"
+    # Atalhos de teclado para este plugin
+    shortcuts:
+      toggle: "c"          # Mostrar/esconder relógio
+
+  - name: "clock_secondary"
+    type: "clock"
+    position: [1050, 130]
+    font_size: 35
+    font: "sfns"            # Nome da fonte em assets.fonts (opcional)
+    format: "%H:%M %Z"
+    timezone: "UTC"
+    show_by_default: false
+    # Atalhos de teclado para este plugin
+    shortcuts:
+      toggle: "v"          # Mostrar/esconder relógio    
+
+  - name: "cpu_monitor"
+    type: "cpu"
+    position: [75, 85]
+    font_size: 18
+    font: "menlo"          # Nome da fonte em assets.fonts (opcional)
+    update_interval: 2.0
+    # Atalhos de teclado para este plugin
+    shortcuts:
+      toggle: "p"          # Mostrar/esconder CPU
+    
+  # Múltiplos overlays (molduras, watermarks, figuras)
+  # Cada instância pode ter: file, position, size, opacity, fit, resize
+  - name: "frame_border"
+    type: "overlay"
+    file: "moldura.png"        # Arquivo da moldura/overlay
+    position: [0, 0]           # Posição (x, y)
+    # fit: true                # Redimensiona para tamanho do output
+    # resize: 1.0              # Fator de redimensionamento (1.0=original, 0.5=50%, 2.0=200%)
+    opacity: 1.0               # Opacidade (0.0 a 1.0)
+    # Atalhos de teclado para este plugin
+    shortcuts:
+      toggle: "f"          # Mostrar/esconder moldura
+    
+  #. Exemplo de watermark (imagem menor, posicionada)
+  - name: "logo"
+    type: "overlay"
+    file: "logo.png"
+    position: [1050, 550]
+    resize: 0.5              # 50% do tamanho original
+    opacity: 0.8
+    # Atalhos de teclado para este plugin (opcional - pode ter múltiplas)
+    shortcuts:
+      toggle: "w"          # Mostrar/esconder watermark
+
+  #. fun stuff
+  - name: "trollface"
+    type: "overlay"
+    file: "trollface.png"
+    position: [550,250]
+    resize: 1              # tamanho original
+    opacity: 1.0
+    show_by_default: false
+    # Atalhos de teclado para este plugin (opcional - pode ter múltiplas)
+    shortcuts:
+      toggle: "1"          # Mostrar/esconder watermark
+
+  # TLP - Traffic Light Protocol (FIRST.org)
+  # Exibe classificação de sensibilidade de informação
+  - name: "tlp_indicator"
+    type: "tlp"
+    position: [1060, 630]     # Canto superior esquerdo
+    font_size: 30
+    default_tlp: "CLEAR"   # Nível TLP padrão (RED, AMBER, GREEN, CLEAR)
+    padding: 8
+    # Atalhos de teclado para este plugin
+    shortcuts:
+      toggle: "t"          # Mostrar/esconder indicador TLP
+      red: "r"            # TLP:RED
+      amber: "a"          # TLP:AMBER (yellow)
+      green: "g"          # TLP:GREEN
+      clear: "l"          # TLP:CLEAR
+
+# Atalhos de Teclado Globais (não específicos de plugins)
+keyboard_shortcuts:
+  # Sair do programa
+  quit: "q"
+
