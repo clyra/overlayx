@@ -17,14 +17,11 @@ import time
 import os
 import sys
 import threading
-from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 from datetime import datetime
-from typing import Dict, List, Any, Optional, Callable
+from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
-from abc import ABC
 import yaml
-import json
 
 # Importa plugins da pasta plugins
 from plugins import Plugin, ClockPlugin, CPUPlugin, OverlayPlugin, CropPlugin, TLPPlugin
@@ -63,7 +60,7 @@ class AppConfig:
     
     @classmethod
     def from_yaml(cls, filepath: str) -> 'AppConfig':
-        """Carrega configuração de arquivo JSON ou YAML"""
+        """Carrega configuração de arquivo YAML"""
         if not os.path.exists(filepath):
             return cls()
         
@@ -72,24 +69,14 @@ class AppConfig:
         
         with open(filepath, 'r') as f:
             if ext in ['.yaml', '.yml']:
-                try:
-                    data = yaml.safe_load(f)
-                except (NameError, ModuleNotFoundError, ImportError):
-                    # YAML não disponível, tenta JSON
-                    data = json.load(f)
-            elif ext == '.json':
-                data = json.load(f)
+                data = yaml.safe_load(f)
             else:
-                # Tenta primeiro JSON, depois YAML
+                # Tenta YAML como fallback
                 f.seek(0)
                 try:
-                    data = json.load(f)
-                except json.JSONDecodeError:
-                    f.seek(0)
-                    try:
-                        data = yaml.safe_load(f)
-                    except:
-                        data = {}
+                    data = yaml.safe_load(f)
+                except:
+                    data = {}
         
         if not data:
             return cls()
