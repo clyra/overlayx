@@ -119,6 +119,17 @@ plugins:
     shortcuts:
       toggle: "1"          # Mostrar/esconder watermark
 
+  - name: "thuglife"
+    type: "overlay"
+    file: "thuglife.png"
+    position: [550,250]
+    resize: 0.40              # tamanho original
+    opacity: 1.0
+    show_by_default: false
+    # Atalhos de teclado para este plugin (opcional - pode ter múltiplas)
+    shortcuts:
+      toggle: "2"          # Mostrar/esconder watermark
+
   # TLP - Traffic Light Protocol (FIRST.org)
   # Exibe classificação de sensibilidade de informação
   - name: "tlp_indicator"
@@ -134,6 +145,25 @@ plugins:
       amber: "a"          # TLP:AMBER (yellow)
       green: "g"          # TLP:GREEN
       clear: "l"          # TLP:CLEAR
+
+  - name: "log_monitor"
+    type: "tail"
+    file: "example.log"
+    position: [50, 150]
+    width: 400
+    height: 300
+    font_size: 12
+    font: "menlo"
+    text_color: [0, 255, 0, 255]     # Verde
+    background_color: [0, 0, 0]  # Fundo preto semi-transparente
+    opacity: 0.8  # Nivel de transparencia (0.0 a 1.0)
+    lines: 20
+    breakline: false  # Quebra linha para caber na caixa (false = trunca com "...")
+    following: false  # True = tail -f (últimas linhas); False = primeiras linhas
+    update_interval: 0.5
+    shortcuts:
+      toggle: "L"
+
 
 # Atalhos de Teclado Globais (não específicos de plugins)
 keyboard_shortcuts:

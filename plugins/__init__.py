@@ -21,6 +21,7 @@ from .cpu import CPUPlugin
 from .overlay import OverlayPlugin
 from .crop import CropPlugin
 from .tlp import TLPPlugin
+from .tail import TailPlugin
 
 __all__ = [
     'Plugin',
@@ -29,4 +30,5 @@ __all__ = [
     'OverlayPlugin',
     'CropPlugin',
     'TLPPlugin',
+    'TailPlugin',
 ]

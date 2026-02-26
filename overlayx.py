@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 import yaml
 
 # Importa plugins da pasta plugins
-from plugins import Plugin, ClockPlugin, CPUPlugin, OverlayPlugin, CropPlugin, TLPPlugin
+from plugins import Plugin, ClockPlugin, CPUPlugin, OverlayPlugin, CropPlugin, TLPPlugin, TailPlugin
 
 # ============================================================================
 # CONFIGURAÇÃO
@@ -181,6 +181,7 @@ class PluginManager:
         'overlay': OverlayPlugin,
         'crop': CropPlugin,
         'tlp': TLPPlugin,
+        'tail': TailPlugin,
     }
     
     def __init__(self, app_config: AppConfig):
@@ -290,13 +291,22 @@ class PluginManager:
         if crop_plugin:
             frame = crop_plugin.process_frame(frame, None)
         
-        # Cria objeto draw para plugins que precisam
-        draw = ImageDraw.Draw(frame)
+        # Calculate delta_time once (outside the loop for efficiency)
+        fps = getattr(self.app_config, 'fps', None)
+        if fps is None:
+            fps = 30
+        delta_time = 1.0 / fps
         
         # Aplica plugins na ordem (exceto crop que já foi)
+        # Note: draw object is created inside the loop so each plugin gets
+        # a fresh draw object compatible with its current frame mode (RGB/RGBA)
         for name, plugin in self.plugins.items():
             if name == crop_plugin_name or not plugin.enabled:
                 continue
+            # Call update for plugins that need periodic updates
+            plugin.update(delta_time)
+            # Create fresh draw object for each plugin (handles RGBA conversion properly)
+            draw = ImageDraw.Draw(frame)
             frame = plugin.process_frame(frame, draw)
         
         return frame
@@ -485,6 +495,13 @@ class OverlayX:
                     # Garante que o frame final tem o tamanho correto para a câmera virtual
                     if img.size != target_size:
                         img = img.resize(target_size, Image.Resampling.LANCZOS)
+                    
+                    # Convert RGBA to RGB for virtual camera compatibility
+                    # (composite with black background to preserve visual appearance)
+                    if img.mode == 'RGBA':
+                        background = Image.new('RGB', img.size, (0, 0, 0))
+                        background.paste(img, mask=img.split()[3])  # Use alpha as mask
+                        img = background
                     
                     # Envia para câmera virtual
                     final_frame = np.array(img)
