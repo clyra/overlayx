@@ -51,6 +51,21 @@ assets:
 #       position: [40, 35]
 
 plugins:
+  - name: "background_blur"
+    type: "background"
+    mode: "blur"              # ou "image"
+    blur_radius: 21           # raio do blur (padrão: 21)
+    blur_step: 3              # passo para aumentar/diminuir blur
+    min_blur_radius: 1        # valor mínimo do blur
+    max_blur_radius: 50      # valor máximo do blur
+    background_image: "patogonia.jpg"  # para modo "image"
+    skip_frames: 0
+    shortcuts:
+      toggle: "b"            # Mostrar/esconder background blur
+      increase_blur: "]"     # Aumentar blur
+      decrease_blur: "["      # Diminuir blur
+      toggle_mode: "m"       # Alternar entre modo blur e imagem  
+
   - name: "clock_main"
     type: "clock"
     position: [1050, 80]

@@ -8,3 +8,6 @@ numpy>=1.24.0
 psutil>=5.9.0
 Pillow>=10.0.0
 PyYAML>=6.0
+
+# MediaPipe 0.10.x for background segmentation
+mediapipe>=0.10.0

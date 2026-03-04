@@ -22,6 +22,7 @@ from .overlay import OverlayPlugin
 from .crop import CropPlugin
 from .tlp import TLPPlugin
 from .tail import TailPlugin
+from .background import BackgroundPlugin
 
 __all__ = [
     'Plugin',
@@ -31,4 +32,5 @@ __all__ = [
     'CropPlugin',
     'TLPPlugin',
     'TailPlugin',
+    'BackgroundPlugin',
 ]

@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 import yaml
 
 # Importa plugins da pasta plugins
-from plugins import Plugin, ClockPlugin, CPUPlugin, OverlayPlugin, CropPlugin, TLPPlugin, TailPlugin
+from plugins import Plugin, ClockPlugin, CPUPlugin, OverlayPlugin, CropPlugin, TLPPlugin, TailPlugin, BackgroundPlugin
 
 # ============================================================================
 # CONFIGURAÇÃO
@@ -182,6 +182,7 @@ class PluginManager:
         'crop': CropPlugin,
         'tlp': TLPPlugin,
         'tail': TailPlugin,
+        'background': BackgroundPlugin,
     }
     
     def __init__(self, app_config: AppConfig):
