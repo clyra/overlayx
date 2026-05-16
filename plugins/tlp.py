@@ -22,7 +22,7 @@ Autor: OverlayX
 from typing import Optional, Dict, Any
 from PIL import Image, ImageDraw, ImageFont
 
-from .base import Plugin
+from .base import Plugin  # _load_font herdado
 
 
 class TLPPlugin(Plugin):
@@ -53,11 +53,10 @@ class TLPPlugin(Plugin):
     
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__("tlp", config)
-        self.tlp_level = self.TLP_CLEAR  # Default to CLEAR (most open)
+        self.tlp_level = self.TLP_CLEAR
         self.font = None
         self.position = (20, 20)
         self.font_size = 18
-        self.show = True
         self.padding = 8
     
     def initialize(self, app_config) -> bool:
@@ -78,17 +77,6 @@ class TLPPlugin(Plugin):
         # Padding
         self.padding = self.config.get('padding', 8)
         
-        # Configuração de visibilidade
-        if 'show' in self.config:
-            self.show = self.config['show']
-        elif 'show_by_default' in self.config:
-            self.show = self.config['show_by_default']
-        elif hasattr(app_config, 'show_tlp'):
-            self.show = app_config.show_tlp
-        else:
-            self.show = True
-        
-        # Carrega fonte
         self.font = self._load_font(app_config)
         
         # Adiciona atalhos para mudança de classificação se não especificados
@@ -108,47 +96,8 @@ class TLPPlugin(Plugin):
         print(f"Aviso: Nível TLP '{level}' não reconhecido. Usando TLP:CLEAR.")
         return self.TLP_CLEAR
     
-    def _load_font(self, app_config) -> ImageFont.ImageFont:
-        """Carrega fonte a partir da configuração do plugin ou assets"""
-        font = None
-        
-        # 1. Tenta carregar de caminho direto especificado no plugin config
-        if 'font_path' in self.config:
-            try:
-                font = ImageFont.truetype(self.config['font_path'], self.font_size)
-                return font
-            except FileNotFoundError:
-                pass
-        
-        # 2. Tenta encontrar por nome nos assets
-        if 'font' in self.config and hasattr(app_config, 'assets'):
-            font_name = self.config['font']
-            fonts_list = app_config.assets.get('fonts', [])
-            for f in fonts_list:
-                if f.get('name') == font_name:
-                    try:
-                        font = ImageFont.truetype(f.get('path'), self.font_size)
-                        return font
-                    except FileNotFoundError:
-                        pass
-                    except OSError:
-                        pass
-        
-        # 3. Fallback para fonte padrão do sistema (macOS)
-        try:
-            font = ImageFont.truetype("/System/Library/Fonts/Menlo.ttc", self.font_size)
-        except FileNotFoundError:
-            try:
-                font = ImageFont.truetype("/System/Library/Fonts/SFNS.ttf", self.font_size)
-            except (FileNotFoundError, OSError):
-                font = ImageFont.load_default()
-        except OSError:
-            font = ImageFont.load_default()
-        
-        return font
-    
     def process_frame(self, frame: Image.Image, draw: ImageDraw.Draw) -> Image.Image:
-        if not self.show:
+        if not self.enabled:
             return frame
         
         # Formata o texto TLP
@@ -180,9 +129,8 @@ class TLPPlugin(Plugin):
         return frame
     
     def handle_shortcut(self, action: str) -> bool:
-        """Manipula ações de atalho do plugin."""
         if action == 'toggle':
-            self.show = not self.show
+            self.enabled = not self.enabled
             return True
         
         # Atalhos para mudança de classificação
@@ -200,15 +148,6 @@ class TLPPlugin(Plugin):
             self.tlp_level = self.TLP_CLEAR
             return True
         
-        return False
-    
-    def on_keypress(self, key: str) -> bool:
-        """Manipula teclas pressionadas - delega para o sistema de atalhos do plugin."""
-        # Verifica se a tecla corresponde a alguma ação de atalho do plugin
-        if self.shortcuts:
-            for action, shortcut_key in self.shortcuts.items():
-                if key == shortcut_key:
-                    return self.handle_shortcut(action)
         return False
     
     def set_tlp_level(self, level: str) -> bool:

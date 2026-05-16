@@ -17,15 +17,14 @@ from .base import Plugin
 
 class ClockPlugin(Plugin):
     """Plugin que exibe um relógio"""
-    
+
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__("clock", config)
         self.format_str = "%H:%M:%S"
         self.font = None
         self.position = (1080, 20)
         self.font_size = 35
-        self.show = True
-        self.timezone = None  # Timezone specification (e.g., 'UTC', 'America/Sao_Paulo', or None for local)
+        self.timezone = None
     
     def initialize(self, app_config) -> bool:
         super().initialize(app_config)
@@ -48,54 +47,9 @@ class ClockPlugin(Plugin):
         elif hasattr(app_config, 'clock_font_size'):
             self.font_size = app_config.clock_font_size
         
-        if 'show' in self.config:
-            self.show = self.config['show']
-        elif 'show_by_default' in self.config:
-            self.show = self.config['show_by_default']
-        elif hasattr(app_config, 'show_clock'):
-            self.show = app_config.show_clock
-        else:
-            self.show = True  # Default visibility
-        
-        # Carrega fonte - primeiro tenta usar configuração do plugin, depois assets
         self.font = self._load_font(app_config)
         
         return True
-    
-    def _load_font(self, app_config) -> ImageFont.ImageFont:
-        """Carrega fonte a partir da configuração do plugin ou assets"""
-        font = None
-        
-        # 1. Tenta carregar de caminho direto especificado no plugin config
-        if 'font_path' in self.config:
-            try:
-                font = ImageFont.truetype(self.config['font_path'], self.font_size)
-                return font
-            except:
-                pass
-        
-        # 2. Tenta encontrar por nome nos assets
-        if 'font' in self.config and hasattr(app_config, 'assets'):
-            font_name = self.config['font']
-            fonts_list = app_config.assets.get('fonts', [])
-            for f in fonts_list:
-                if f.get('name') == font_name:
-                    try:
-                        font = ImageFont.truetype(f.get('path'), self.font_size)
-                        return font
-                    except:
-                        pass
-        
-        # 3. Fallback para fonte padrão do sistema
-        try:
-            font = ImageFont.truetype("/System/Library/Fonts/SFNS.ttf", self.font_size)
-        except:
-            try:
-                font = ImageFont.truetype("/System/Library/Fonts/Menlo.ttc", self.font_size)
-            except:
-                font = ImageFont.load_default()
-        
-        return font
     
     def _get_current_time(self) -> datetime:
         """
@@ -144,7 +98,7 @@ class ClockPlugin(Plugin):
         return datetime.now(tz)
     
     def process_frame(self, frame: Image.Image, draw: ImageDraw.Draw) -> Image.Image:
-        if not self.show:
+        if not self.enabled:
             return frame
         
         # Get current time, handling timezone if specified
@@ -165,12 +119,7 @@ class ClockPlugin(Plugin):
         return frame
     
     def handle_shortcut(self, action: str) -> bool:
-        """Manipula ações de atalho do plugin."""
         if action == 'toggle':
-            self.show = not self.show
+            self.enabled = not self.enabled
             return True
         return False
-    
-    def on_keypress(self, key: str) -> bool:
-        """Manipula teclas pressionadas - delega para o sistema de atalhos do plugin."""
-        return super().on_keypress(key)

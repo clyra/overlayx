@@ -218,7 +218,8 @@ class BackgroundPlugin(Plugin):
             # Segmentação
             if video_mode and hasattr(self.segmenter, "segment_for_video"):
                 # timestamp em ms (monótono o suficiente para VIDEO mode)
-                timestamp_ms = int(self.frame_count * (1000 / 30))  # assume 30fps; se souber o fps real, use ele
+                fps = getattr(self.app_config, 'fps', 30)
+                timestamp_ms = int(self.frame_count * (1000 / fps))
                 segmentation_result = self.segmenter.segment_for_video(mp_image, timestamp_ms)
             else:
                 segmentation_result = self.segmenter.segment(mp_image)
@@ -307,69 +308,6 @@ class BackgroundPlugin(Plugin):
         return frame
 
 
-    def process_frame2(self, frame: Image.Image, draw) -> Image.Image:
-        if not self.enabled or not self._model_loaded:
-            return frame
-
-        self.frame_count += 1
-
-        # processa 1 frame a cada (skip_frames+1)
-        if self.skip_frames > 0 and self.frame_count % (self.skip_frames + 1) != 1:
-            return frame
-
-        target_size = frame.size
-
-        try:
-            frame_rgb = frame.convert("RGB") if frame.mode != "RGB" else frame
-            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=np.array(frame_rgb))
-
-            segmentation_result = self.segmenter.segment(mp_image)
-
-            # Preferir confidence masks (probabilidade). Em modelos binários, geralmente:
-            # masks[0] = background, masks[1] = person
-            if hasattr(segmentation_result, "confidence_masks") and segmentation_result.confidence_masks:
-                masks = segmentation_result.confidence_masks
-                category_mask = masks[1] if len(masks) > 1 else masks[0]
-            elif hasattr(segmentation_result, "category_mask"):
-                category_mask = segmentation_result.category_mask
-            else:
-                return frame
-
-            if hasattr(category_mask, "numpy_view"):
-                mask_array = category_mask.numpy_view()
-            else:
-                mask_array = np.asarray(category_mask)
-
-            mask_array = np.asarray(mask_array)
-            if not np.issubdtype(mask_array.dtype, np.number):
-                raise TypeError(f"Mask inválida: dtype={mask_array.dtype}, type={type(category_mask)}")
-
-            # normaliza para uint8 (0..255)
-            if mask_array.dtype == np.uint8 and mask_array.max() > 1:
-                mask_u8 = mask_array
-            else:
-                mask_u8 = np.clip(mask_array * 255.0, 0, 255).astype(np.uint8)
-
-            # Pillow quer (H,W) para 'L'
-            if mask_u8.ndim == 3 and mask_u8.shape[-1] == 1:
-                mask_u8 = mask_u8[:, :, 0]
-            elif mask_u8.ndim != 2:
-                mask_u8 = np.squeeze(mask_u8)
-                if mask_u8.ndim != 2:
-                    raise TypeError(f"Máscara com shape inesperado: {mask_u8.shape}")
-
-            mask_image = Image.fromarray(mask_u8, mode="L").resize(target_size, Image.Resampling.BILINEAR)
-
-            if self.mode == "blur":
-                return self._apply_blur_background(frame, mask_image)
-            elif self.mode == "image":
-                return self._apply_image_background(frame, mask_image, target_size)
-
-        except Exception as e:
-            print(f"Erro na segmentação: {e}")
-
-        return frame
-        
     def cleanup(self):
         """Limpa recursos do plugin"""
         if self.segmenter:

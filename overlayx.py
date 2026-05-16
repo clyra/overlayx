@@ -48,9 +48,6 @@ class AppConfig:
     # Nova propriedade para instâncias de plugins
     plugin_instances: List[Dict[str, Any]] = field(default_factory=list)
     
-    # Propriedade para armazenar config de plugins (modo legado)
-    plugins: Dict[str, Any] = field(default_factory=dict)
-    
     keyboard_shortcuts: Dict[str, str] = field(default_factory=lambda: {
         'quit': 'q',
         'pause': ' ',
@@ -106,9 +103,6 @@ class AppConfig:
         
         # Parse plugin instances configuration
         config.plugin_instances = cls._parse_plugin_instances(data)
-        
-        # Store full plugins data for legacy access
-        config.plugins = data.get('plugins', {})
         
         return config
     
@@ -188,47 +182,28 @@ class PluginManager:
     def __init__(self, app_config: AppConfig):
         self.app_config = app_config
         self.plugins: Dict[str, Plugin] = {}
-        self.filter_plugins: List[Plugin] = []
-        self.current_filter_index = 0
+        self._crop_plugin_name: Optional[str] = None
+        self._delta_time: float = 1.0 / app_config.fps
     
     def register_plugin(self, plugin: Plugin, instance_id: str = None):
         """Registra um plugin com um ID único"""
         if instance_id is None:
             instance_id = plugin.name
-        
-        # Gera ID único se já existir
+
         original_id = instance_id
         counter = 1
         while instance_id in self.plugins:
             instance_id = f"{original_id}_{counter}"
             counter += 1
-        
+
         self.plugins[instance_id] = plugin
+        if plugin.name == 'crop':
+            self._crop_plugin_name = instance_id
         print(f"Plugin registrado: {plugin.name} (ID: {instance_id})")
-    
-    def register_filter(self, plugin: Plugin):
-        """Registra um plugin como filtro"""
-        self.filter_plugins.append(plugin)
     
     def initialize_plugins(self) -> bool:
         """Inicializa todos os plugins baseados na configuração"""
-        
-        # Primeiro, registra todas as classes de plugins disponíveis
-        for name, plugin_class in self.PLUGIN_CLASSES.items():
-            # Não instanciamos aqui, apenas garantimos que estão disponíveis
-            pass
-        
-        # Agora cria instâncias baseadas na configuração
-        plugin_instances = getattr(self.app_config, 'plugin_instances', [])
-        
-        # Se não há instâncias configuradas, usa modo legado (compatibilidade)
-        if not plugin_instances:
-            # Fallback para o comportamento antigo
-            self._initialize_legacy_plugins()
-            return True
-        
-        # Cria instâncias de plugins baseadas na configuração
-        for instance_config in plugin_instances:
+        for instance_config in self.app_config.plugin_instances:
             plugin_type = instance_config.get('type')  # tipo do plugin (para encontrar a classe)
             instance_id = instance_config.get('id')  # ID único da instância
             enabled = instance_config.get('enabled', True)
@@ -253,89 +228,30 @@ class PluginManager:
                 return False
         
         return True
-    
-    def _initialize_legacy_plugins(self):
-        """Inicializa plugins no modo legado (compatibilidade)"""
-        # Get plugin configs from legacy format (plugins.config in YAML)
-        plugins_data = getattr(self.app_config, 'plugins', {})
-        plugin_configs = plugins_data.get('config', {})
-        
-        # Plugins padrão
-        # Nota: CropPlugin foi removido do modo legado pois causava problemas de dimensão
-        # (ImageOps.fit com aspect ratios diferentes). Ainda está disponível via
-        # sistema de instâncias para quem precisar de crop inteligente.
-        # Suporta ambos os formatos: 'frame' (legado) e 'overlay' (novo)
-        overlay_config = plugin_configs.get('frame', {}) or plugin_configs.get('overlay', {})
-        self.register_plugin(ClockPlugin(config=plugin_configs.get('clock', {})))
-        self.register_plugin(CPUPlugin(config=plugin_configs.get('cpu', {})))
-        self.register_plugin(OverlayPlugin(config=overlay_config))
-        
-        # Inicializa plugins
-        for name, plugin in self.plugins.items():
-            try:
-                plugin.initialize(self.app_config)
-            except Exception as e:
-                print(f"Erro ao inicializar plugin {name}: {e}")
-    
+
     def process_frame(self, frame: Image.Image) -> Image.Image:
         """Processa um frame através de todos os plugins"""
-        # Procura por plugin de crop
-        crop_plugin = None
-        crop_plugin_name = None
+        if self._crop_plugin_name:
+            frame = self.plugins[self._crop_plugin_name].process_frame(frame, None)
+
         for name, plugin in self.plugins.items():
-            if plugin.name == 'crop':
-                crop_plugin = plugin
-                crop_plugin_name = name
-                break
-        
-        # Primeiro aplica crop/transformações
-        if crop_plugin:
-            frame = crop_plugin.process_frame(frame, None)
-        
-        # Calculate delta_time once (outside the loop for efficiency)
-        fps = getattr(self.app_config, 'fps', None)
-        if fps is None:
-            fps = 30
-        delta_time = 1.0 / fps
-        
-        # Aplica plugins na ordem (exceto crop que já foi)
-        # Note: draw object is created inside the loop so each plugin gets
-        # a fresh draw object compatible with its current frame mode (RGB/RGBA)
-        for name, plugin in self.plugins.items():
-            if name == crop_plugin_name or not plugin.enabled:
+            if name == self._crop_plugin_name or not plugin.enabled:
                 continue
-            # Call update for plugins that need periodic updates
-            plugin.update(delta_time)
-            # Create fresh draw object for each plugin (handles RGBA conversion properly)
+            plugin.update(self._delta_time)
             draw = ImageDraw.Draw(frame)
             frame = plugin.process_frame(frame, draw)
-        
+
         return frame
     
     def on_keypress(self, key: str) -> bool:
         """Propaga eventos de teclado para plugins"""
-        handled = False
-        
-        # Primeiro verifica plugins
         for plugin in self.plugins.values():
-            if plugin.on_keypress(key):
-                handled = True
-        
-        # Atalhos globais
+            plugin.on_keypress(key)
+
         if key == self.app_config.keyboard_shortcuts.get('quit', 'q'):
             return 'quit'
-        
-        if key == self.app_config.keyboard_shortcuts.get('next_filter', 'n'):
-            if self.filter_plugins:
-                self.current_filter_index = (self.current_filter_index + 1) % len(self.filter_plugins)
-                handled = True
-        
-        if key == self.app_config.keyboard_shortcuts.get('prev_filter', 'b'):
-            if self.filter_plugins:
-                self.current_filter_index = (self.current_filter_index - 1) % len(self.filter_plugins)
-                handled = True
-        
-        return handled
+
+        return False
     
     def cleanup(self):
         """Limpa todos os plugins"""

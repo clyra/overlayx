@@ -112,13 +112,3 @@ class OverlayPlugin(Plugin):
         
         return frame
     
-    def on_keypress(self, key: str) -> bool:
-        """Manipula teclas pressionadas - delega para o sistema de atalhos do plugin."""
-        # Verifica atalhos do plugin
-        if self.shortcuts:
-            for action, shortcut_key in self.shortcuts.items():
-                if key == shortcut_key:
-                    if action == 'toggle':
-                        self.enabled = not self.enabled
-                        return True
-        return False

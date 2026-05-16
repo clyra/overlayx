@@ -8,7 +8,6 @@ Autor: OverlayX
 """
 
 import os
-import sys
 import time
 from typing import Optional, Dict, Any, List
 from PIL import Image, ImageDraw, ImageFont
@@ -41,11 +40,10 @@ class TailPlugin(Plugin):
         self.opacity: float = 1.0  # Fator de transparência (0.0 a 1.0)
         
         # Configurações de comportamento
-        self.lines: int = 10  # Número de linhas a mostrar
-        self.update_interval: float = 0.5  # Intervalo de atualização em segundos
-        self.show: bool = True
-        self.breakline: bool = False  # Se True, quebra linha; se False, trunca com "..."
-        self.following: bool = True  # Se True, tail -f (últimas linhas); se False, mostra primeiras linhas
+        self.lines: int = 10
+        self.update_interval: float = 0.5
+        self.breakline: bool = False
+        self.following: bool = True
         
         # Estado interno
         self._last_file_size: int = 0
@@ -111,12 +109,6 @@ class TailPlugin(Plugin):
         if 'update_interval' in self.config:
             self.update_interval = self.config['update_interval']
         
-        # Visibilidade
-        if 'show' in self.config:
-            self.show = self.config['show']
-        elif 'show_by_default' in self.config:
-            self.show = self.config['show_by_default']
-        
         # Breakline: se True, quebra linha; se False, trunca com "..."
         if 'breakline' in self.config:
             self.breakline = self.config['breakline']
@@ -125,7 +117,6 @@ class TailPlugin(Plugin):
         if 'following' in self.config:
             self.following = self.config['following']
         
-        # Carrega fonte
         self.font = self._load_font(app_config)
         
         # Inicializa leitura do arquivo
@@ -133,64 +124,6 @@ class TailPlugin(Plugin):
         self._last_update = time.time()  # Prevent redundant read on first frame
         
         return True
-    
-    def _load_font(self, app_config) -> ImageFont.ImageFont:
-        """Carrega fonte a partir da configuração do plugin ou assets"""
-        font = None
-        
-        # 1. Tenta carregar de caminho direto especificado no plugin config
-        if 'font_path' in self.config:
-            try:
-                font = ImageFont.truetype(self.config['font_path'], self.font_size)
-                return font
-            except OSError:
-                pass
-        
-        # 2. Tenta encontrar por nome nos assets
-        if 'font' in self.config:
-            self.font_name = self.config['font']
-            fonts_list = app_config.assets.get('fonts', [])
-            for f in fonts_list:
-                if f.get('name') == self.font_name:
-                    try:
-                        font = ImageFont.truetype(f.get('path'), self.font_size)
-                        return font
-                    except OSError:
-                        pass
-        
-        # 3. Fallback para fonte padrão do sistema (cross-platform)
-        # Tenta detectar e usar fontes do sistema operacional
-        font_paths = []
-        
-        if sys.platform == 'darwin':  # macOS
-            font_paths = [
-                "/System/Library/Fonts/SFNS.ttf",
-                "/System/Library/Fonts/Menlo.ttc",
-                "/Library/Fonts/Menlo.ttc",
-            ]
-        elif sys.platform == 'win32':  # Windows
-            font_paths = [
-                "C:/Windows/Fonts/arial.ttf",
-                "C:/Windows/Fonts/consola.ttf",
-                "C:/Windows/Fonts/cour.ttf",
-            ]
-        elif sys.platform == 'linux':  # Linux
-            font_paths = [
-                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-                "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-                "/usr/share/fonts/TTF/DejaVuSans.ttf",
-                "/usr/share/fonts/dejavu/DejaVuSans.ttf",
-            ]
-        
-        for font_path in font_paths:
-            try:
-                font = ImageFont.truetype(font_path, self.font_size)
-                return font
-            except OSError:
-                continue
-        
-        # 4. Ultimate fallback - PIL's default font
-        return ImageFont.load_default()
     
     def _read_file(self):
         """Lê o conteúdo do arquivo (similar ao tail)"""
@@ -237,7 +170,7 @@ class TailPlugin(Plugin):
             self._last_update = current_time
     
     def process_frame(self, frame: Image.Image, draw: ImageDraw.Draw) -> Image.Image:
-        if not self.show:
+        if not self.enabled:
             return frame
         
         # Converte para RGBA para suportar transparência
@@ -347,12 +280,7 @@ class TailPlugin(Plugin):
         return frame
     
     def handle_shortcut(self, action: str) -> bool:
-        """Manipula ações de atalho do plugin."""
         if action == 'toggle':
-            self.show = not self.show
+            self.enabled = not self.enabled
             return True
         return False
-    
-    def on_keypress(self, key: str) -> bool:
-        """Manipula teclas pressionadas - delega para o sistema de atalhos do plugin."""
-        return super().on_keypress(key)
