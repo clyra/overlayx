@@ -271,7 +271,9 @@ class KeyboardHandler:
         self.lock = threading.Lock()
     
     def start(self):
-        """Inicia o listener de teclado em thread separada"""
+        """Inicia o listener de teclado em thread separada (só funciona com TTY)."""
+        if not sys.stdin.isatty():
+            return
         self.running = True
         self.thread = threading.Thread(target=self._keyboard_listener, daemon=True)
         self.thread.start()
@@ -341,90 +343,71 @@ class OverlayX:
         return True
     
     def run(self):
-        """Executa o loop principal"""
+        """Executa o loop principal (CLI)."""
         if not self.initialize():
             return
-        
+        self._run_loop()
+
+    def _run_loop(self):
+        """Loop de captura e processamento. Chamar após initialize()."""
         target_size = (self.config.width, self.config.height)
-        
+
         print(f"\nCâmera Virtual iniciada ({target_size[0]}x{target_size[1]} @ {self.config.fps}fps)")
-        print("Pressione as teclas de atalho (veja config.yaml)")
         print("Pressione Ctrl+C para parar.\n")
-        
-        # Inicia captura
+
         cap = cv2.VideoCapture(self.config.device)
-        
+
         if not cap.isOpened():
             print("Erro: Não foi possível abrir a câmera")
             return
-        
+
         try:
             with pyvirtualcam.Camera(
-                width=target_size[0], 
-                height=target_size[1], 
+                width=target_size[0],
+                height=target_size[1],
                 fps=self.config.fps
             ) as cam:
                 while self.running:
-                    # Verifica teclas
                     key = self.keyboard_handler.get_key()
                     if key:
                         result = self.plugin_manager.on_keypress(key)
                         if result == 'quit':
                             break
-                        
                         if key == self.config.keyboard_shortcuts.get('pause', ' '):
                             self.paused = not self.paused
                             print(f"{'Pausado' if self.paused else 'Retomado'}")
-                    
+
                     if self.paused:
                         time.sleep(0.1)
                         continue
-                    
-                    # Captura frame
+
                     ret, frame = cap.read()
                     if not ret:
                         print("Erro ao capturar frame")
                         break
-                    
-                    # Converte BGR -> RGB
+
                     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                     img = Image.fromarray(frame_rgb)
-                    
-                    # Aplica modo de redimensionamento baseado na configuração 'fit'
-                    target_size = (self.config.width, self.config.height)
+
                     if self.config.fit:
-                        # fit=True: dimensiona a imagem para preencher completamente a saída
-                        # (mantém aspect ratio, pode adicionar letterbox/pillarbox)
                         img = ImageOps.fit(img, target_size, Image.Resampling.LANCZOS)
                     else:
-                        # fit=False (padrão): 
-                        # - Se a imagem da webcam for maior que a saída: faz crop do centro
-                        # - Se a imagem da webcam for menor ou igual: mantém o tamanho original
                         if img.width > target_size[0] or img.height > target_size[1]:
-                            # Faz crop do centro para caber na resolução de saída
                             img = ImageOps.fit(img, target_size, Image.Resampling.LANCZOS)
-                        # Caso contrário, mantém o tamanho original da webcam
-                    
-                    # Processa através dos plugins
-                    # (plugins que precisam de tamanho específico podem redimensionar internamente)
+
                     img = self.plugin_manager.process_frame(img)
-                    
-                    # Garante que o frame final tem o tamanho correto para a câmera virtual
+
                     if img.size != target_size:
                         img = img.resize(target_size, Image.Resampling.LANCZOS)
-                    
-                    # Convert RGBA to RGB for virtual camera compatibility
-                    # (composite with black background to preserve visual appearance)
+
                     if img.mode == 'RGBA':
                         background = Image.new('RGB', img.size, (0, 0, 0))
-                        background.paste(img, mask=img.split()[3])  # Use alpha as mask
+                        background.paste(img, mask=img.split()[3])
                         img = background
-                    
-                    # Envia para câmera virtual
-                    final_frame = np.array(img)
-                    cam.send(final_frame)
+
+                    cam.send(np.array(img))
                     cam.sleep_until_next_frame()
-        
+
         except KeyboardInterrupt:
             print("\nEncerrando...")
         finally:

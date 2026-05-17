@@ -11,3 +11,7 @@ PyYAML>=6.0
 
 # MediaPipe 0.10.x for background segmentation
 mediapipe>=0.10.0
+
+# Menu bar app
+rumps>=0.4.0      # macOS (NSStatusBar nativo)
+pystray>=0.19.0   # Linux / Windows (system tray)
